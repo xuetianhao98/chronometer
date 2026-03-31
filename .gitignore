@@ -1,0 +1,61 @@
+# CMake build directory
+build/
+
+# clangd index cache
+.cache/
+
+# Compiled object files
+*.o
+*.obj
+
+# Static libraries
+*.a
+*.lib
+
+# Shared libraries
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+_deps/
+
+# Ninja
+.ninja_deps
+.ninja_log
+build.ninja
+
+# IDE - VSCode
+.vscode/
+
+# IDE - CLion/JetBrains
+.idea/
+
+# Vim swap files
+*.swp
+*.swo
+*~
+
+# macOS system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.tmp
