@@ -21,10 +21,10 @@ namespace chronometer {
  * 定义计时结果可转换的目标时间单位。
  */
 enum class TimeUnit {
-  Nanoseconds,   ///< 纳秒 (10^-9 秒)
-  Microseconds,  ///< 微秒 (10^-6 秒)
-  Milliseconds,  ///< 毫秒 (10^-3 秒)
-  Seconds        ///< 秒
+  kNanoseconds,   ///< 纳秒 (10^-9 秒)
+  kMicroseconds,  ///< 微秒 (10^-6 秒)
+  kMilliseconds,  ///< 毫秒 (10^-3 秒)
+  kSeconds        ///< 秒
 };
 
 /**
@@ -42,7 +42,7 @@ class Chronometer {
    *
    * 使用 Meyer's Singleton 模式实现，C++11 起保证线程安全。
    */
-  static Chronometer& instance();
+  static Chronometer& Instance();
 
   Chronometer(const Chronometer&) = delete;
   Chronometer& operator=(const Chronometer&) = delete;
@@ -55,7 +55,7 @@ class Chronometer {
    *
    * 线程安全：使用原子操作生成 ID，独占锁保护计时器映射。
    */
-  uint64_t start();
+  uint64_t Start();
 
   /**
    * @brief 停止指定计时器并返回经过的时间
@@ -67,7 +67,7 @@ class Chronometer {
    * 线程安全：使用独占锁保护计时器映射。
    * 调用后该计时器将被移除。
    */
-  double stop(uint64_t id, TimeUnit unit = TimeUnit::Microseconds);
+  double Stop(uint64_t id, TimeUnit unit = TimeUnit::kMicroseconds);
 
   /**
    * @brief 获取指定计时器当前已运行的时间（不停止计时器）
@@ -78,7 +78,7 @@ class Chronometer {
    *
    * 线程安全：使用共享锁实现并发读取。
    */
-  double elapsed(uint64_t id, TimeUnit unit = TimeUnit::Microseconds) const;
+  double Elapsed(uint64_t id, TimeUnit unit = TimeUnit::kMicroseconds) const;
 
  private:
   Chronometer() = default;

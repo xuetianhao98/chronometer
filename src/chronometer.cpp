@@ -25,17 +25,17 @@ namespace {
  */
 double convertDuration(std::chrono::nanoseconds duration, TimeUnit unit) {
   switch (unit) {
-    case TimeUnit::Nanoseconds:
+    case TimeUnit::kNanoseconds:
       return static_cast<double>(duration.count());
-    case TimeUnit::Microseconds:
+    case TimeUnit::kMicroseconds:
       return static_cast<double>(
           std::chrono::duration_cast<std::chrono::microseconds>(duration)
               .count());
-    case TimeUnit::Milliseconds:
+    case TimeUnit::kMilliseconds:
       return static_cast<double>(
           std::chrono::duration_cast<std::chrono::milliseconds>(duration)
               .count());
-    case TimeUnit::Seconds:
+    case TimeUnit::kSeconds:
       return static_cast<double>(
           std::chrono::duration_cast<std::chrono::seconds>(duration).count());
   }
@@ -44,13 +44,13 @@ double convertDuration(std::chrono::nanoseconds duration, TimeUnit unit) {
 
 }  // anonymous namespace
 
-Chronometer& Chronometer::instance() {
+Chronometer& Chronometer::Instance() {
   // Meyer's Singleton: C++11 起保证线程安全
   static Chronometer instance;
   return instance;
 }
 
-uint64_t Chronometer::start() {
+uint64_t Chronometer::Start() {
   // 使用 relaxed 内存序生成唯一 ID（仅需原子性，无需同步）
   uint64_t id = next_id_.fetch_add(1, std::memory_order_relaxed);
   // 独占锁保护 timers_ 的写入
@@ -59,7 +59,7 @@ uint64_t Chronometer::start() {
   return id;
 }
 
-double Chronometer::stop(uint64_t id, TimeUnit unit) {
+double Chronometer::Stop(uint64_t id, TimeUnit unit) {
   // 先获取结束时间戳，排除锁等待时间的影响
   auto end_time = std::chrono::steady_clock::now();
   // 独占锁：stop 会修改 timers_（删除条目）
@@ -76,7 +76,7 @@ double Chronometer::stop(uint64_t id, TimeUnit unit) {
       std::chrono::duration_cast<std::chrono::nanoseconds>(duration), unit);
 }
 
-double Chronometer::elapsed(uint64_t id, TimeUnit unit) const {
+double Chronometer::Elapsed(uint64_t id, TimeUnit unit) const {
   // 先获取当前时间戳，排除锁等待时间的影响
   auto now = std::chrono::steady_clock::now();
   // 共享锁：elapsed 只读，支持并发查询
