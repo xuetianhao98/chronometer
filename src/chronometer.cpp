@@ -60,6 +60,8 @@ uint64_t Chronometer::start() {
 }
 
 double Chronometer::stop(uint64_t id, TimeUnit unit) {
+  // 先获取结束时间戳，排除锁等待时间的影响
+  auto end_time = std::chrono::steady_clock::now();
   // 独占锁：stop 会修改 timers_（删除条目）
   std::unique_lock lock(mutex_);
   auto it = timers_.find(id);
@@ -67,7 +69,6 @@ double Chronometer::stop(uint64_t id, TimeUnit unit) {
     throw std::out_of_range("Timer id not found");
   }
   auto start_time = it->second;
-  auto end_time = std::chrono::steady_clock::now();
   timers_.erase(it);
 
   auto duration = end_time - start_time;
@@ -76,6 +77,8 @@ double Chronometer::stop(uint64_t id, TimeUnit unit) {
 }
 
 double Chronometer::elapsed(uint64_t id, TimeUnit unit) const {
+  // 先获取当前时间戳，排除锁等待时间的影响
+  auto now = std::chrono::steady_clock::now();
   // 共享锁：elapsed 只读，支持并发查询
   std::shared_lock lock(mutex_);
   auto it = timers_.find(id);
@@ -83,7 +86,6 @@ double Chronometer::elapsed(uint64_t id, TimeUnit unit) const {
     throw std::out_of_range("Timer id not found");
   }
   auto start_time = it->second;
-  auto now = std::chrono::steady_clock::now();
 
   auto duration = now - start_time;
   return convertDuration(
