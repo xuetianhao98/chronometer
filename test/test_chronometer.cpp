@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <chrono>
+#include <cmath>
 #include <chronometer/chronometer.hpp>
 #include <thread>
 #include <vector>
@@ -127,3 +129,98 @@ TEST(ChronometerTest, ConcurrentStartStop) {
 
   EXPECT_EQ(success_count.load(), num_threads * iterations_per_thread);
 }
+
+#ifdef CHRONOMETER_USE_RDTSC
+
+#include <chronometer/rdtsc_clock.hpp>
+
+// 验证校准后的频率合理
+TEST(RdtscClockTest, RdtscCalibration) {
+  RdtscClock::Calibrate();
+  double ticks_per_ns = RdtscClock::GetTicksPerNs();
+
+  // 断言频率 > 0
+  EXPECT_GT(ticks_per_ns, 0.0);
+
+  // 断言频率在合理范围内：0.5 ~ 6.0 ticks/ns（对应 0.5-6 GHz）
+  EXPECT_GE(ticks_per_ns, 0.5);
+  EXPECT_LE(ticks_per_ns, 6.0);
+}
+
+// 对比 RDTSC 和 steady_clock 计时结果
+TEST(RdtscClockTest, RdtscPrecision) {
+  RdtscClock::Calibrate();
+
+  auto steady_start = std::chrono::steady_clock::now();
+  uint64_t rdtsc_start = RdtscClock::Now();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  auto steady_end = std::chrono::steady_clock::now();
+  uint64_t rdtsc_end = RdtscClock::Now();
+
+  // 计算 steady_clock 的耗时（纳秒）
+  auto steady_duration =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(steady_end -
+                                                           steady_start)
+          .count();
+
+  // 计算 RDTSC 的耗时（纳秒）
+  auto rdtsc_duration =
+      RdtscClock::ToNanoseconds(rdtsc_start, rdtsc_end).count();
+
+  // 断言 RDTSC 结果与 steady_clock 结果的误差 < 5%
+  double diff = std::abs(static_cast<double>(steady_duration) -
+                         static_cast<double>(rdtsc_duration));
+  double error_rate = diff / static_cast<double>(steady_duration);
+  EXPECT_LT(error_rate, 0.05);
+}
+
+// 验证 RDTSC 调用开销极低
+TEST(RdtscClockTest, RdtscLowOverhead) {
+  RdtscClock::Calibrate();
+
+  uint64_t tsc1 = RdtscClock::Now();
+  uint64_t tsc2 = RdtscClock::Now();
+
+  // 计算两次调用的时间差
+  auto overhead = RdtscClock::ToNanoseconds(tsc1, tsc2).count();
+
+  // 断言开销 < 1000ns（1微秒）
+  EXPECT_LT(overhead, 1000);
+}
+
+// 多线程并发 RDTSC 计时
+TEST(RdtscClockTest, RdtscConcurrent) {
+  RdtscClock::Calibrate();
+
+  const int num_threads = 8;
+  const int iterations_per_thread = 100;
+
+  std::vector<std::thread> threads;
+  std::atomic<int> success_count{0};
+
+  for (int i = 0; i < num_threads; ++i) {
+    threads.emplace_back([&]() {
+      for (int j = 0; j < iterations_per_thread; ++j) {
+        auto& chrono = Chronometer::Instance();
+        uint64_t id = chrono.Start();
+        // brief work
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
+        double elapsed = chrono.Stop(id);
+        if (elapsed > 0.0) {
+          success_count++;
+        }
+      }
+    });
+  }
+
+  for (auto& t : threads) {
+    t.join();
+  }
+
+  // 断言 success_count == 800
+  EXPECT_EQ(success_count.load(), num_threads * iterations_per_thread);
+}
+
+#endif  // CHRONOMETER_USE_RDTSC

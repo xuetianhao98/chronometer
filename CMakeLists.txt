@@ -17,6 +17,15 @@ target_include_directories(chronometer
         $<INSTALL_INTERFACE:include>
 )
 
+# RDTSC 支持
+if(CHRONOMETER_USE_RDTSC)
+    if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
+        message(FATAL_ERROR "CHRONOMETER_USE_RDTSC requires x86_64 architecture, detected: ${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+    target_compile_definitions(chronometer PUBLIC CHRONOMETER_USE_RDTSC)
+    target_sources(chronometer PRIVATE src/rdtsc_clock.cpp)
+endif()
+
 # 兼容性处理：PROJECT_IS_TOP_LEVEL 在 CMake 3.21+ 中定义
 if(CMAKE_VERSION VERSION_LESS "3.21")
     get_directory_property(has_parent PARENT_DIRECTORY)
@@ -30,6 +39,7 @@ endif()
 # 选项
 option(CHRONOMETER_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
 option(CHRONOMETER_BUILD_EXAMPLES "Build examples" ${PROJECT_IS_TOP_LEVEL})
+option(CHRONOMETER_USE_RDTSC "Use RDTSC for high-precision timing (x86_64 only)" OFF)
 
 # 条件性子目录
 if(CHRONOMETER_BUILD_TESTS)

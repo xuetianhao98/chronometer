@@ -13,6 +13,10 @@
 #include <shared_mutex>
 #include <unordered_map>
 
+#ifdef CHRONOMETER_USE_RDTSC
+#include "chronometer/rdtsc_clock.hpp"
+#endif
+
 namespace chronometer {
 
 /**
@@ -83,9 +87,15 @@ class Chronometer {
  private:
   Chronometer() = default;
 
+#ifdef CHRONOMETER_USE_RDTSC
+  using TimePoint = uint64_t;
+#else
+  using TimePoint = std::chrono::steady_clock::time_point;
+#endif
+
   std::atomic<uint64_t> next_id_{0};  ///< 下一个计时器 ID 的原子计数器
   mutable std::shared_mutex mutex_;  ///< 保护 timers_ 的读写锁
-  std::unordered_map<uint64_t, std::chrono::steady_clock::time_point>
+  std::unordered_map<uint64_t, TimePoint>
       timers_;  ///< 计时器 ID 到起始时间点的映射
 };
 

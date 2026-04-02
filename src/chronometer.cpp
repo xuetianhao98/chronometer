@@ -47,21 +47,38 @@ double convertDuration(std::chrono::nanoseconds duration, TimeUnit unit) {
 Chronometer& Chronometer::Instance() {
   // Meyer's Singleton: C++11 起保证线程安全
   static Chronometer instance;
+#ifdef CHRONOMETER_USE_RDTSC
+  static bool calibrated = [] {
+    RdtscClock::Calibrate();
+    return true;
+  }();
+  (void)calibrated;
+#endif
   return instance;
 }
 
 uint64_t Chronometer::Start() {
   // 使用 relaxed 内存序生成唯一 ID（仅需原子性，无需同步）
   uint64_t id = next_id_.fetch_add(1, std::memory_order_relaxed);
+  // 在获取锁之前采样时间（前置采样规范）
+#ifdef CHRONOMETER_USE_RDTSC
+  auto start_time = RdtscClock::Now();
+#else
+  auto start_time = std::chrono::steady_clock::now();
+#endif
   // 独占锁保护 timers_ 的写入
   std::unique_lock lock(mutex_);
-  timers_[id] = std::chrono::steady_clock::now();
+  timers_[id] = start_time;
   return id;
 }
 
 double Chronometer::Stop(uint64_t id, TimeUnit unit) {
-  // 先获取结束时间戳，排除锁等待时间的影响
+  // 前置采样
+#ifdef CHRONOMETER_USE_RDTSC
+  auto end_time = RdtscClock::Now();
+#else
   auto end_time = std::chrono::steady_clock::now();
+#endif
   // 独占锁：stop 会修改 timers_（删除条目）
   std::unique_lock lock(mutex_);
   auto it = timers_.find(id);
@@ -71,14 +88,22 @@ double Chronometer::Stop(uint64_t id, TimeUnit unit) {
   auto start_time = it->second;
   timers_.erase(it);
 
-  auto duration = end_time - start_time;
-  return convertDuration(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(duration), unit);
+#ifdef CHRONOMETER_USE_RDTSC
+  auto duration = RdtscClock::ToNanoseconds(start_time, end_time);
+#else
+  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      end_time - start_time);
+#endif
+  return convertDuration(duration, unit);
 }
 
 double Chronometer::Elapsed(uint64_t id, TimeUnit unit) const {
-  // 先获取当前时间戳，排除锁等待时间的影响
-  auto now = std::chrono::steady_clock::now();
+  // 前置采样
+#ifdef CHRONOMETER_USE_RDTSC
+  auto end_time = RdtscClock::Now();
+#else
+  auto end_time = std::chrono::steady_clock::now();
+#endif
   // 共享锁：elapsed 只读，支持并发查询
   std::shared_lock lock(mutex_);
   auto it = timers_.find(id);
@@ -87,9 +112,13 @@ double Chronometer::Elapsed(uint64_t id, TimeUnit unit) const {
   }
   auto start_time = it->second;
 
-  auto duration = now - start_time;
-  return convertDuration(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(duration), unit);
+#ifdef CHRONOMETER_USE_RDTSC
+  auto duration = RdtscClock::ToNanoseconds(start_time, end_time);
+#else
+  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      end_time - start_time);
+#endif
+  return convertDuration(duration, unit);
 }
 
 }  // namespace chronometer
